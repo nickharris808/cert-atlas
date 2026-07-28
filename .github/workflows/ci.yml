@@ -36,3 +36,34 @@ jobs:
           python-version: "3.12"
       - run: pip install --quiet ruff
       - run: ruff check .
+
+  leaderboard:
+    name: leaderboard is current
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[test]"
+      # Recomputes the reference scores from a freshly built atlas and re-renders the
+      # table, then fails if the committed file differs. A published number cannot
+      # drift from what the code produces.
+      #
+      # Submitted verifiers are validated, never executed: running a stranger's
+      # command from a pull request would be arbitrary code execution.
+      - run: python scripts/refresh_leaderboard.py --check
+
+  action:
+    name: the reusable action scores a verifier
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./
+        with:
+          # Install from this checkout rather than the published main, so a broken
+          # action.yml cannot pass by testing the previous release.
+          cert-atlas-source: "."
+          command: "python3 scripts/reference_cli.py {path}"
+          verifier-name: reference (via action)
+          track: artifact-only

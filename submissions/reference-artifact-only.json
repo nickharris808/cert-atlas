@@ -1,0 +1,52 @@
+{
+  "atlas_digest": "a8e087f0acbc28559b6f17dea0a71fef8633ebdface85a98adf16bd7c4f12a1f",
+  "atlas_score": 0.9545,
+  "atlas_version": "1.0.0",
+  "command": [
+    "cert-atlas",
+    "baseline",
+    "atlas"
+  ],
+  "detection": 0.9545,
+  "environment": {
+    "implementation": "cpython",
+    "platform": "macOS-26.0.1-arm64-arm-64bit",
+    "python": "3.11.14"
+  },
+  "false_alarms": [],
+  "format": "cert-atlas-submission/1",
+  "missed": [
+    "cert.self_consistent_forgery"
+  ],
+  "n_cases": 27,
+  "notes": "The bundled reference verifier with no out-of-band fingerprint. It misses cert.self_consistent_forgery, which is not catchable from the artifact alone.",
+  "per_defect": {
+    "cert.broken_manifest": "caught",
+    "cert.broken_merkle": "caught",
+    "cert.broken_outputs_commitment": "caught",
+    "cert.dropped_field": "caught",
+    "cert.forged_verdict": "caught",
+    "cert.inflated_photons": "caught",
+    "cert.mutated_intensity": "caught",
+    "cert.noncanonical": "caught",
+    "cert.self_consistent_forgery": "MISSED",
+    "cert.tampered_kappa": "caught",
+    "cert.vacuous": "caught",
+    "receipt.broken_chain_link": "caught",
+    "receipt.forged_counterexample": "caught",
+    "receipt.non_rup_lemma": "caught",
+    "receipt.swapped_cnf": "caught",
+    "receipt.swapped_description": "caught",
+    "receipt.swapped_encoder": "caught",
+    "receipt.truncated_chain": "caught",
+    "receipt.unjustified_empty_clause": "caught",
+    "seal.altered_result": "caught",
+    "seal.moved_threshold": "caught",
+    "seal.repointed_bound_seal": "caught"
+  },
+  "precision": 1.0,
+  "sound": false,
+  "track": "artifact-only",
+  "url": "https://github.com/nickharris808/lcert-verify",
+  "verifier": "lcert-verify (reference)"
+}

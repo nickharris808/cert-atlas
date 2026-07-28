@@ -1,0 +1,153 @@
+name: cert-atlas score
+description: >-
+  Score a certificate verifier against the cert-atlas corpus and fail the build if
+  it misses a forgery. Reports detection, precision, and min(detection, precision).
+author: nickharris808
+branding:
+  icon: check-circle
+  color: blue
+
+inputs:
+  command:
+    description: >-
+      Verifier argv, space separated, with {path} as the artifact placeholder.
+      Example: "mycheck --strict {path}"
+    required: true
+  accept-returncode:
+    description: Exit code that means ACCEPT. Anything else counts as a rejection.
+    required: false
+    default: "0"
+  track:
+    description: artifact-only (default) or anchored. The two are not comparable.
+    required: false
+    default: artifact-only
+  min-score:
+    description: >-
+      Fail if min(detection, precision) falls below this. The default "auto" uses the
+      ceiling attainable in the chosen track, computed from the corpus: 1.000 for
+      anchored, and less than that for artifact-only, where one defect is not
+      catchable from the artifact by anyone. So "auto" fails on any forgery you could
+      have caught, and never on one nobody can.
+    required: false
+    default: "auto"
+  verifier-name:
+    description: Name to record in the submission artifact.
+    required: false
+    default: ""
+  python-version:
+    required: false
+    default: "3.12"
+  cert-atlas-source:
+    description: >-
+      Where to install cert-atlas from. Defaults to the published main branch. Set to
+      a local path (e.g. ".") to exercise a checkout — this repository's own CI does
+      that so a broken action cannot ship green against an older published version.
+    required: false
+    default: "git+https://github.com/nickharris808/cert-atlas@main"
+
+outputs:
+  atlas-score:
+    description: min(detection, precision)
+    value: ${{ steps.score.outputs.atlas-score }}
+  detection:
+    value: ${{ steps.score.outputs.detection }}
+    description: Fraction of invalid artifacts correctly rejected.
+  precision:
+    value: ${{ steps.score.outputs.precision }}
+    description: Fraction of valid artifacts correctly accepted.
+  missed:
+    description: Space-separated ids of forgeries that were accepted.
+    value: ${{ steps.score.outputs.missed }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install cert-atlas
+      shell: bash
+      run: |
+        pip install --quiet \
+          "lcert-verify @ git+https://github.com/nickharris808/lcert-verify@main" \
+          "equiv-receipt @ git+https://github.com/nickharris808/equiv-receipt@main" \
+          "prereg-seal @ git+https://github.com/nickharris808/prereg-seal@main"
+        src='${{ inputs.cert-atlas-source }}'
+        case "$src" in
+          git+*) pip install --quiet --no-deps "cert-atlas @ $src" ;;
+          *)     pip install --quiet --no-deps -e "$src" ;;
+        esac
+
+    - name: Build the atlas
+      shell: bash
+      run: cert-atlas build "${RUNNER_TEMP}/atlas"
+
+    - name: Score
+      id: score
+      shell: bash
+      env:
+        CA_COMMAND: ${{ inputs.command }}
+        CA_RC: ${{ inputs.accept-returncode }}
+        CA_TRACK: ${{ inputs.track }}
+        CA_MIN: ${{ inputs.min-score }}
+        CA_NAME: ${{ inputs.verifier-name }}
+      run: |
+        set -euo pipefail
+        name="${CA_NAME:-${GITHUB_REPOSITORY##*/}}"
+        # shellcheck disable=SC2086
+        cert-atlas submit "${RUNNER_TEMP}/atlas" \
+          --verifier "$name" \
+          --track "$CA_TRACK" \
+          --url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
+          --accept-returncode "$CA_RC" \
+          -o "${RUNNER_TEMP}/submission.json" \
+          -- $CA_COMMAND | tee "${RUNNER_TEMP}/report.txt"
+
+        python - <<'PY' >> "$GITHUB_OUTPUT"
+        import json, os
+        s = json.load(open(os.environ["RUNNER_TEMP"] + "/submission.json"))
+        print(f"atlas-score={s['atlas_score']}")
+        print(f"detection={s['detection']}")
+        print(f"precision={s['precision']}")
+        print("missed=" + " ".join(s["missed"]))
+        PY
+
+        {
+          echo "## cert-atlas"
+          echo
+          echo '```'
+          cat "${RUNNER_TEMP}/report.txt"
+          echo '```'
+        } >> "$GITHUB_STEP_SUMMARY"
+
+        python - <<'PY'
+        import json, os, sys
+        from cert_atlas.score import load_index
+        from cert_atlas.submit import track_ceiling
+        s = json.load(open(os.environ["RUNNER_TEMP"] + "/submission.json"))
+        raw = os.environ["CA_MIN"].strip().lower()
+        if raw == "auto":
+            floor = track_ceiling(load_index(os.environ["RUNNER_TEMP"] + "/atlas"), s["track"])
+            print(f"required score for the {s['track']} track: {floor:.3f} "
+                  f"(ceiling computed from the corpus)")
+        else:
+            floor = float(raw)
+        if s["atlas_score"] + 1e-9 < floor:
+            sys.stderr.write(
+                f"atlas score {s['atlas_score']:.3f} is below the required {floor:.3f}\n")
+            if s["missed"]:
+                sys.stderr.write("  forgeries accepted: " + ", ".join(s["missed"]) + "\n")
+            if s["false_alarms"]:
+                sys.stderr.write("  valid artifacts rejected: "
+                                 + ", ".join(s["false_alarms"]) + "\n")
+            sys.exit(1)
+        PY
+
+    - name: Upload the submission record
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: cert-atlas-submission
+        path: ${{ runner.temp }}/submission.json
+        if-no-files-found: ignore

@@ -24,8 +24,33 @@ The most valuable contribution is a forgery we do not catch.
 
 ## Submitting a verifier result
 
-Include the atlas digest. Results at different digests are not comparable and will be asked for a
-re-run.
+Use `cert-atlas submit`, which records the digest for you:
+
+```bash
+cert-atlas build atlas
+cert-atlas submit atlas --verifier "my-checker" --url https://github.com/me/my-checker \
+    -- mycheck --strict '{path}'
+```
+
+Open a PR adding the generated `submissions/*.json`. Results at different digests are not
+comparable — such an entry is listed as **unranked with the reason stated**, rather than dropped
+or silently ranked against a different corpus.
+
+Two things the leaderboard will not do:
+
+- **It will not run your verifier.** A PR that executes submitted code is a supply-chain hole. The
+  numbers you submit are your claim; the recorded `command` and `atlas_digest` are what make the
+  claim checkable by anyone.
+- **It will not accept a score that its own numbers do not support.** `atlas_score` must equal
+  `min(detection, precision)`; reporting the flattering half is rejected by validation.
+
+Only the bundled reference entries are recomputed in CI, because they are our code, not yours.
+
+### If your verifier does not reach 1.000
+
+In the `artifact-only` track it cannot: `cert.self_consistent_forgery` is not catchable from the
+artifact by any verifier, so the ceiling is 0.955. Submit anyway — attaining the ceiling is the
+strongest honest claim available, and the leaderboard states the ceiling next to the scores.
 
 ## Installing for development
 
