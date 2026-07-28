@@ -1,0 +1,12 @@
+{
+  "atlas_version": "1.0.0",
+  "atlas_digest": "8b7f021842dff8909e7ea696d28b1896e7411ee185882ecabed6ed1dae7335a1",
+  "n_cases": 26,
+  "detection": 1.0,
+  "precision": 1.0,
+  "atlas_score": 1.0,
+  "sound": true,
+  "missed": [],
+  "false_alarms": [],
+  "errors": []
+}

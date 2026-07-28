@@ -1,0 +1,22 @@
+{
+ "atlas_digest": "8b7f021842dff8909e7ea696d28b1896e7411ee185882ecabed6ed1dae7335a1",
+ "atlas_version": "1.0.0",
+ "counts": {
+  "invalid": 21,
+  "valid": 5
+ },
+ "fields": {
+  "artifact": "dict[str,str] \u2014 relative filename -> file contents",
+  "atlas_digest": "string \u2014 content digest; rows are only comparable at equal digest",
+  "atlas_version": "string \u2014 the atlas release this row came from",
+  "caught_by": "string|null \u2014 the check that is supposed to reject it",
+  "defect": "string|null \u2014 defect key; null for valid cases",
+  "family": "string \u2014 certificate | receipt | seal",
+  "id": "string \u2014 stable case identifier, e.g. 'cert.forged_verdict'",
+  "severity": "string|null \u2014 soundness | integrity | vacuity",
+  "tags": "list[string] \u2014 free-form labels",
+  "title": "string|null \u2014 one-line description of the mutation",
+  "valid": "bool \u2014 whether a correct verifier should ACCEPT this artifact",
+  "why_it_looks_valid": "string|null \u2014 why a naive verifier would accept it"
+ }
+}
