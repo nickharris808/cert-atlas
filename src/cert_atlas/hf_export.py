@@ -32,17 +32,26 @@ def to_rows(atlas_dir) -> List[dict]:
     rows = []
     for c in index["cases"]:
         d = DEFECTS.get(c.get("defect") or "")
+        art = _artifact(atlas, c["path"])
         rows.append({
             "id": c["id"],
             "family": c["family"],
             "valid": c["valid"],
-            "defect": c.get("defect"),
-            "severity": c.get("severity"),
-            "title": c.get("title"),
-            "why_it_looks_valid": d.why_it_looks_valid if d else None,
-            "caught_by": c.get("caught_by"),
-            "tags": list(d.tags) if d else [],
-            "artifact": _artifact(atlas, c["path"]),
+            "defect": c.get("defect") or "",
+            "severity": c.get("severity") or "",
+            "title": c.get("title") or "",
+            "why_it_looks_valid": (d.why_it_looks_valid if d else "") or "",
+            "caught_by": c.get("caught_by") or "",
+            # Valid rows carry real tags rather than an empty list: an all-empty
+            # list column infers as list<null>, which will not unify with the
+            # list<string> of the other split when both are loaded together.
+            "tags": list(d.tags) if d else ["valid", c["family"]],
+            # Stored as a JSON string, not a mapping: artifacts have different
+            # filenames per case, and a struct with a union of every filename
+            # makes columnar schema inference fail. `artifact_files` gives the
+            # names without needing to parse.
+            "artifact_files": sorted(art),
+            "artifact_json": json.dumps(art, sort_keys=True, ensure_ascii=False),
             "atlas_version": index["atlas_version"],
             "atlas_digest": index.get("digest"),
         })
@@ -53,13 +62,14 @@ SCHEMA = {
     "id": "string — stable case identifier, e.g. 'cert.forged_verdict'",
     "family": "string — certificate | receipt | seal",
     "valid": "bool — whether a correct verifier should ACCEPT this artifact",
-    "defect": "string|null — defect key; null for valid cases",
-    "severity": "string|null — soundness | integrity | vacuity",
-    "title": "string|null — one-line description of the mutation",
-    "why_it_looks_valid": "string|null — why a naive verifier would accept it",
-    "caught_by": "string|null — the check that is supposed to reject it",
+    "defect": "string — defect key; empty for valid cases",
+    "severity": "string — soundness | integrity | vacuity; empty for valid cases",
+    "title": "string — one-line description of the mutation; empty for valid cases",
+    "why_it_looks_valid": "string — why a naive verifier would accept it; empty if valid",
+    "caught_by": "string — the check that is supposed to reject it; empty if valid",
     "tags": "list[string] — free-form labels",
-    "artifact": "dict[str,str] — relative filename -> file contents",
+    "artifact_files": "list[string] — filenames making up the artifact",
+    "artifact_json": "string — JSON object mapping each filename to its contents",
     "atlas_version": "string — the atlas release this row came from",
     "atlas_digest": "string — content digest; rows are only comparable at equal digest",
 }

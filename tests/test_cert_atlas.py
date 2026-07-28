@@ -194,7 +194,10 @@ def test_export_writes_jsonl_and_schema(atlas, tmp_path):
         assert len(lines) == n
     schema = json.loads((tmp_path / "schema.json").read_text())
     assert schema["atlas_digest"] == A.load_index(atlas)["digest"]
-    assert "artifact" in schema["fields"]
+    # artifacts are stored as a JSON string plus a filename list: a mapping whose keys
+    # vary per row breaks columnar schema inference on dataset hubs.
+    assert "artifact_json" in schema["fields"]
+    assert "artifact_files" in schema["fields"]
 
 
 def test_exported_rows_reconstruct_the_artifact(atlas, tmp_path):
@@ -203,8 +206,34 @@ def test_exported_rows_reconstruct_the_artifact(atlas, tmp_path):
     rows = [json.loads(x) for x in
             (tmp_path / "data" / "invalid-00000.jsonl").read_text().splitlines() if x.strip()]
     cert_row = next(r for r in rows if r["family"] == "certificate")
-    assert "bundle.json" in cert_row["artifact"]
-    json.loads(cert_row["artifact"]["bundle.json"])          # must be real, parseable content
+    assert "bundle.json" in cert_row["artifact_files"]
+    art = json.loads(cert_row["artifact_json"])
+    json.loads(art["bundle.json"])                           # must be real, parseable content
+
+
+def test_exported_columns_have_one_stable_type_each(atlas, tmp_path):
+    """Columnar viewers infer a schema; a column that is null in one split and a
+    string in another, or a struct whose keys vary per row, breaks them."""
+    import cert_atlas as A
+    A.hf_export(atlas, tmp_path)
+    for split in ("valid", "invalid"):
+        rows = [json.loads(x) for x in
+                (tmp_path / "data" / f"{split}-00000.jsonl").read_text().splitlines() if x.strip()]
+        for key in rows[0]:
+            kinds = {type(r[key]).__name__ for r in rows}
+            assert len(kinds) == 1, f"{split}.{key} has mixed types {kinds}"
+            assert None not in [r[key] for r in rows], f"{split}.{key} contains null"
+
+
+def test_artifact_json_round_trips(atlas, tmp_path):
+    import cert_atlas as A
+    A.hf_export(atlas, tmp_path)
+    rows = [json.loads(x) for x in
+            (tmp_path / "data" / "invalid-00000.jsonl").read_text().splitlines() if x.strip()]
+    for r in rows:
+        art = json.loads(r["artifact_json"])
+        assert sorted(art) == r["artifact_files"]
+        assert all(isinstance(v, str) and v for v in art.values())
 
 
 def test_every_exported_row_carries_its_label(atlas, tmp_path):
@@ -214,6 +243,16 @@ def test_every_exported_row_carries_its_label(atlas, tmp_path):
             (tmp_path / "data" / "invalid-00000.jsonl").read_text().splitlines() if x.strip()]
     for r in rows:
         assert r["defect"] and r["severity"] and r["caught_by"] and r["why_it_looks_valid"]
+
+
+def test_valid_rows_use_empty_strings_not_nulls(atlas, tmp_path):
+    import cert_atlas as A
+    A.hf_export(atlas, tmp_path)
+    rows = [json.loads(x) for x in
+            (tmp_path / "data" / "valid-00000.jsonl").read_text().splitlines() if x.strip()]
+    for r in rows:
+        for k in ("defect", "severity", "title", "why_it_looks_valid", "caught_by"):
+            assert r[k] == "", f"{r['id']}.{k} should be an empty string, got {r[k]!r}"
 
 
 def test_shipped_dataset_matches_a_fresh_export(tmp_path):
@@ -239,3 +278,29 @@ def test_standalone_loader_needs_no_dependencies():
     assert len(d["valid"]) == 5 and len(d["invalid"]) == 21
     assert mod.schema(shipped)["atlas_digest"]
     assert len(list(mod.iter_forgeries(shipped))) == 21
+
+
+def test_list_columns_are_never_empty_across_a_whole_split(atlas, tmp_path):
+    """Regression: an all-empty list column infers as list<null> and will not
+    unify with the list<string> of the other split, which broke the dataset
+    viewer. Every list column must be non-empty on at least one row per split —
+    in practice, on every row."""
+    import cert_atlas as A
+    A.hf_export(atlas, tmp_path)
+    for split in ("valid", "invalid"):
+        rows = [json.loads(x) for x in
+                (tmp_path / "data" / f"{split}-00000.jsonl").read_text().splitlines() if x.strip()]
+        for key in ("tags", "artifact_files"):
+            assert all(r[key] for r in rows), f"{split}.{key} is empty on some row"
+            assert all(isinstance(v, str) for r in rows for v in r[key])
+
+
+def test_both_splits_load_together_if_datasets_is_available(atlas, tmp_path):
+    """The exact failure the viewer hit: splits that load alone but not together."""
+    datasets = pytest.importorskip("datasets")
+    import cert_atlas as A
+    A.hf_export(atlas, tmp_path)
+    ds = datasets.load_dataset("json", data_files={
+        "valid": str(tmp_path / "data" / "valid-00000.jsonl"),
+        "invalid": str(tmp_path / "data" / "invalid-00000.jsonl")})
+    assert len(ds["valid"]) == 5 and len(ds["invalid"]) == 21

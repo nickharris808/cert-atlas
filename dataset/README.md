@@ -20,6 +20,39 @@ configs:
         path: data/valid-*.jsonl
       - split: invalid
         path: data/invalid-*.jsonl
+dataset_info:
+  features:
+    - name: id
+      dtype: string
+    - name: family
+      dtype: string
+    - name: valid
+      dtype: bool
+    - name: defect
+      dtype: string
+    - name: severity
+      dtype: string
+    - name: title
+      dtype: string
+    - name: why_it_looks_valid
+      dtype: string
+    - name: caught_by
+      dtype: string
+    - name: tags
+      sequence: string
+    - name: artifact_files
+      sequence: string
+    - name: artifact_json
+      dtype: string
+    - name: atlas_version
+      dtype: string
+    - name: atlas_digest
+      dtype: string
+  splits:
+    - name: valid
+      num_examples: 5
+    - name: invalid
+      num_examples: 21
 ---
 
 # Certificate Failure Atlas
@@ -71,7 +104,8 @@ cert-atlas score atlas my-verifier --check '{path}'
 
 | field | type | meaning |
 |---|---|---|
-| `artifact` | dict[str,str] | relative filename -> file contents |
+| `artifact_files` | list[string] | filenames making up the artifact |
+| `artifact_json` | string | JSON object mapping each filename to its contents |
 | `atlas_digest` | string | content digest; rows are only comparable at equal digest |
 | `atlas_version` | string | the atlas release this row came from |
 | `caught_by` | string|null | the check that is supposed to reject it |
@@ -84,8 +118,18 @@ cert-atlas score atlas my-verifier --check '{path}'
 | `valid` | bool | whether a correct verifier should ACCEPT this artifact |
 | `why_it_looks_valid` | string|null | why a naive verifier would accept it |
 
-`artifact` maps a relative filename to that file's contents, so a single row reconstructs the whole
-artifact — a `bundle.json` plus its payload files, a receipt, or a sealed specification.
+`artifact_json` is a JSON object mapping each filename to its contents, so a single row
+reconstructs the whole artifact — a `bundle.json` plus its payload files, a receipt, or a sealed
+specification. It is a string rather than a nested mapping because filenames differ per case, and a
+struct over the union of every filename defeats columnar schema inference.
+
+```python
+import json
+artifact = json.loads(row["artifact_json"])      # {"bundle.json": "...", ...}
+```
+
+Fields that only apply to forgeries (`defect`, `severity`, `title`, `why_it_looks_valid`,
+`caught_by`) are the **empty string** on valid rows, not null, so every column has one stable type.
 
 ## Splits
 

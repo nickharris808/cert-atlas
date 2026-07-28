@@ -32,6 +32,11 @@ def iter_forgeries(root: Optional[Path] = None) -> Iterator[dict]:
     yield from load_split("invalid", root)
 
 
+def artifact(row: dict) -> Dict[str, str]:
+    """Decode a row's artifact into {filename: contents}."""
+    return json.loads(row["artifact_json"])
+
+
 def schema(root: Optional[Path] = None) -> dict:
     return json.loads(((root or HERE) / "schema.json").read_text(encoding="utf-8"))
 
@@ -52,3 +57,4 @@ if __name__ == "__main__":
     print(f"atlas digest: {schema()['atlas_digest']}")
     for r in d["invalid"][:3]:
         print(f"  {r['id']:34} [{r['severity']}] {r['title']}")
+        print(f"      files: {', '.join(artifact(r))}")
