@@ -1,13 +1,13 @@
 {
-  "atlas_digest": "a8e087f0acbc28559b6f17dea0a71fef8633ebdface85a98adf16bd7c4f12a1f",
-  "atlas_score": 0.9545,
+  "atlas_digest": "f278ae0d7fe885623b1b1ad2c3a742591a55d3c04bef6135b8e254d64e0abf64",
+  "atlas_score": 0.9643,
   "atlas_version": "1.0.0",
   "command": [
     "cert-atlas",
     "baseline",
     "atlas"
   ],
-  "detection": 0.9545,
+  "detection": 0.9643,
   "environment": {
     "implementation": "cpython",
     "platform": "macOS-26.0.1-arm64-arm-64bit",
@@ -18,7 +18,7 @@
   "missed": [
     "cert.self_consistent_forgery"
   ],
-  "n_cases": 27,
+  "n_cases": 36,
   "notes": "The bundled reference verifier with no out-of-band fingerprint. It misses cert.self_consistent_forgery, which is not catchable from the artifact alone.",
   "per_defect": {
     "cert.broken_manifest": "caught",
@@ -42,7 +42,13 @@
     "receipt.unjustified_empty_clause": "caught",
     "seal.altered_result": "caught",
     "seal.moved_threshold": "caught",
-    "seal.repointed_bound_seal": "caught"
+    "seal.repointed_bound_seal": "caught",
+    "seq.broken_chain": "caught",
+    "seq.dropped_obligation": "caught",
+    "seq.edited_design": "caught",
+    "seq.forged_undecided_as_equivalent": "caught",
+    "seq.tampered_verdict": "caught",
+    "seq.valid_proof_of_a_different_problem": "caught"
   },
   "precision": 1.0,
   "sound": false,

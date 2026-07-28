@@ -1,9 +1,9 @@
 {
- "atlas_digest": "a8e087f0acbc28559b6f17dea0a71fef8633ebdface85a98adf16bd7c4f12a1f",
+ "atlas_digest": "f278ae0d7fe885623b1b1ad2c3a742591a55d3c04bef6135b8e254d64e0abf64",
  "atlas_version": "1.0.0",
  "counts": {
-  "invalid": 22,
-  "valid": 5
+  "invalid": 28,
+  "valid": 8
  },
  "fields": {
   "artifact_files": "list[string] \u2014 filenames making up the artifact",

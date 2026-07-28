@@ -57,8 +57,13 @@ def test_per_defect_breakdown_covers_every_invalid_case(atlas, ref):
 
 
 def test_reference_scores_are_the_published_ones(atlas, ref):
+    """Pinned, because these two numbers appear in five READMEs.
+
+    They move whenever the corpus grows, which is intended — but they must move
+    deliberately, with every published copy re-derived, not drift quietly.
+    """
     anchored = score(atlas, anchored_reference_verifier)
-    assert _sub(ref)["atlas_score"] == pytest.approx(0.9545, abs=5e-4)
+    assert _sub(ref)["atlas_score"] == pytest.approx(0.9643, abs=5e-4)
     assert _sub(anchored, track="anchored")["atlas_score"] == 1.0
 
 
@@ -172,8 +177,10 @@ def test_a_url_is_optional_and_a_missing_one_is_not_a_broken_link(ref):
 
 
 def test_missed_list_is_truncated_but_the_count_is_not_hidden(atlas):
+    from cert_atlas.score import load_index
+    n_invalid = load_index(atlas)["n_invalid"]
     md = render_leaderboard([_sub(_degenerate(atlas, True), verifier="yes")])
-    assert "+19" in md, "the count of further misses must survive truncation"
+    assert f"+{n_invalid - 3}" in md, "the count of further misses must survive truncation"
 
 
 # ------------------------------------------------------------------ CLI

@@ -16,6 +16,7 @@ from typing import Dict, List
 CERT = "certificate"
 RECEIPT = "receipt"
 SEAL = "seal"
+SEQ = "sequential"
 
 
 @dataclass(frozen=True)
@@ -196,3 +197,58 @@ def summary() -> Dict[str, int]:
     for d in DEFECTS.values():
         out[d.family] = out.get(d.family, 0) + 1
     return out
+
+
+# ---------------------------------------------------------------- sequential receipts
+#
+# A sequential equivalence receipt is several proof obligations plus an inductive
+# argument over them. That is more surface than a single refutation, and two of
+# the defects below have no analogue in the other families: an argument can be
+# *incomplete* rather than wrong, and a formula can be a valid proof of the wrong
+# problem.
+
+_d(key="seq.forged_undecided_as_equivalent", family=SEQ, severity="soundness",
+   title="An abstention relabelled as a proof of equivalence",
+   why_it_looks_valid="Every obligation present carries a real, checkable proof. "
+                      "The base cases genuinely hold. Only the inductive step is "
+                      "missing, and the recorded verdict does not mention it.",
+   caught_by="Re-deriving the argument rather than reading the verdict: with no "
+             "step obligation discharged, EQUIVALENT does not follow, and the "
+             "honest answer is UNDECIDED-AT-K.",
+   tags=["verdict", "abstention", "the-hardest-one"])
+
+_d(key="seq.valid_proof_of_a_different_problem", family=SEQ, severity="soundness",
+   title="A real proof, of a formula this design does not encode to",
+   why_it_looks_valid="The DRAT checks. The formula is UNSAT. Everything about "
+                      "the obligation is internally impeccable — it is simply an "
+                      "obligation for different circuits.",
+   caught_by="Re-encoding the obligation from the committed design and comparing "
+             "bytes. A receipt that only commits the formula cannot catch this.",
+   tags=["encoder", "physics-input"])
+
+_d(key="seq.dropped_obligation", family=SEQ, severity="soundness",
+   title="An obligation claimed UNSAT but shipped without its proof",
+   why_it_looks_valid="The receipt still lists the obligation and marks it "
+                      "discharged; only the proof body is empty.",
+   caught_by="An UNSAT claim with no proof is a claim, and claims are not "
+             "accepted.",
+   tags=["proof"])
+
+_d(key="seq.edited_design", family=SEQ, severity="integrity",
+   title="The design changed after the proofs were produced",
+   why_it_looks_valid="Every proof still checks against the formula beside it.",
+   caught_by="The design digest, and re-encoding: the formulas no longer "
+             "correspond to the circuits now in the receipt.",
+   tags=["commitment"])
+
+_d(key="seq.tampered_verdict", family=SEQ, severity="soundness",
+   title="A counterexample receipt relabelled EQUIVALENT",
+   why_it_looks_valid="Nothing else was touched.",
+   caught_by="The verdict is re-derived from the obligations, never read.",
+   tags=["verdict"])
+
+_d(key="seq.broken_chain", family=SEQ, severity="integrity",
+   title="A record edited inside the hash chain",
+   why_it_looks_valid="The payload is untouched and every proof still checks.",
+   caught_by="Recomputing the chain digests.",
+   tags=["commitment"])

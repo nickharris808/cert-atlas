@@ -42,6 +42,12 @@ def reference_verifier(path: str, case: dict) -> bool:
             return True
         except P.SealMismatch:
             return False
+    if fam == "sequential":
+        from equiv_receipt import seq
+        res = seq.verify_seq_receipt(json.loads(Path(path).read_text()))
+        # An abstention is a VALID artifact — it is an honest UNDECIDED-AT-K, not
+        # a defect. What must be rejected is an abstention relabelled as a proof.
+        return bool(res["ok"])
     raise ValueError(f"unknown family {fam!r}")
 
 

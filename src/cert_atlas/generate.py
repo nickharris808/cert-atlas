@@ -213,6 +213,114 @@ def _seal_cases() -> List[dict]:
 
 # ---------------- driver ----------------
 
+
+# ---------------------------------------------------------------- sequential receipts
+
+#: A 2-bit counter, and the same machine with different names and a De Morgan'd
+#: output. Small enough that the bundled solver can discharge every obligation,
+#: so the atlas builds with no external tool.
+SEQ_A = {
+    "inputs": ["en"],
+    "latches": [{"name": "s0", "next": "n0", "init": 0},
+                {"name": "s1", "next": "n1", "init": 0}],
+    "gates": [{"op": "XOR", "out": "n0", "args": ["s0", "en"]},
+              {"op": "AND", "out": "c", "args": ["s0", "en"]},
+              {"op": "XOR", "out": "n1", "args": ["s1", "c"]},
+              {"op": "OR", "out": "o", "args": ["s0", "s1"]}],
+    "outputs": ["o"],
+}
+SEQ_B = {
+    "inputs": ["en"],
+    "latches": [{"name": "t0", "next": "m0", "init": 0},
+                {"name": "t1", "next": "m1", "init": 0}],
+    "gates": [{"op": "XOR", "out": "m0", "args": ["en", "t0"]},
+              {"op": "AND", "out": "cc", "args": ["en", "t0"]},
+              {"op": "XOR", "out": "m1", "args": ["cc", "t1"]},
+              {"op": "NOT", "out": "na", "args": ["t0"]},
+              {"op": "NOT", "out": "nb", "args": ["t1"]},
+              {"op": "AND", "out": "z", "args": ["na", "nb"]},
+              {"op": "NOT", "out": "o2", "args": ["z"]}],
+    "outputs": ["o2"],
+}
+SEQ_DIFFERENT = dict(SEQ_B, outputs=["t0"])      # drops the s1 term: genuinely differs
+
+
+def _seq_equivalent():
+    from equiv_receipt import seq
+    return seq.prove_sequential_equivalence(SEQ_A, SEQ_B, k=1)
+
+
+def _seq_counterexample():
+    from equiv_receipt import seq
+    return seq.prove_sequential_equivalence(SEQ_A, SEQ_DIFFERENT, k=3)
+
+
+def _seq_undecided():
+    """Base cases proved, no inductive argument closed. A valid abstention."""
+    from equiv_receipt import seq
+    full = _seq_equivalent()
+    base = [o for o in full["payload"]["obligations"] if o["kind"] == "base"]
+    return seq.build_seq_receipt(verdict=seq.UNDECIDED, design_a=SEQ_A, design_b=SEQ_B,
+                                 k=1, obligations=base, method="k-induction")
+
+
+def _sq_forged_undecided(_):
+    """The hardest one: an honest abstention relabelled as a proof."""
+    from equiv_receipt import seq
+    r = copy.deepcopy(_seq_undecided())
+    return seq.build_seq_receipt(
+        verdict=seq.EQUIVALENT, design_a=SEQ_A, design_b=SEQ_B, k=1,
+        obligations=r["payload"]["obligations"], method="k-induction")
+
+
+def _sq_wrong_problem(r):
+    r = copy.deepcopy(r)
+    obs = r["payload"]["obligations"]
+    obs[0]["cnf"], obs[0]["drat"] = obs[-1]["cnf"], obs[-1]["drat"]
+    return r
+
+
+def _sq_dropped_proof(r):
+    r = copy.deepcopy(r)
+    r["payload"]["obligations"][-1]["drat"] = ""
+    return r
+
+
+def _sq_edited_design(r):
+    r = copy.deepcopy(r)
+    r["payload"]["design_a"] = copy.deepcopy(SEQ_A)
+    r["payload"]["design_a"]["outputs"] = ["s0"]
+    return r
+
+
+def _sq_tampered_verdict(r):
+    from equiv_receipt import seq
+    r = copy.deepcopy(r)
+    for rec in r["records"]:
+        if rec.get("kind") == "verdict":
+            rec["verdict"] = seq.COUNTEREXAMPLE
+    return r
+
+
+def _sq_broken_chain(r):
+    r = copy.deepcopy(r)
+    for rec in r["records"]:
+        if rec.get("kind") == "designs":
+            rec["name_a"] = "something else"
+            break
+    return r
+
+
+SEQ_MUTATIONS = {
+    "seq.forged_undecided_as_equivalent": _sq_forged_undecided,
+    "seq.valid_proof_of_a_different_problem": _sq_wrong_problem,
+    "seq.dropped_obligation": _sq_dropped_proof,
+    "seq.edited_design": _sq_edited_design,
+    "seq.tampered_verdict": _sq_tampered_verdict,
+    "seq.broken_chain": _sq_broken_chain,
+}
+
+
 def build(out_dir) -> dict:
     """Write the full atlas. Returns the index."""
     out = Path(out_dir)
@@ -222,6 +330,7 @@ def build(out_dir) -> dict:
     (out / "certificates").mkdir(parents=True)
     (out / "receipts").mkdir(parents=True)
     (out / "seals").mkdir(parents=True)
+    (out / "sequential").mkdir(parents=True)
 
     cases = []
 
@@ -255,6 +364,20 @@ def build(out_dir) -> dict:
         (out / "receipts" / f"{name}.json").write_bytes(E.canon(r) + b"\n")
         cases.append({"id": key, "family": "receipt", "valid": False,
                       "path": f"receipts/{name}.json", "defect": key})
+
+    seq_ok = _seq_equivalent()
+    for name, receipt in (("valid_equivalent", seq_ok),
+                          ("valid_counterexample", _seq_counterexample()),
+                          ("valid_undecided", _seq_undecided())):
+        (out / "sequential" / f"{name}.json").write_bytes(E.canon(receipt) + b"\n")
+        cases.append({"id": f"seq.{name}", "family": "sequential", "valid": True,
+                      "path": f"sequential/{name}.json", "defect": None})
+
+    for key, mut in SEQ_MUTATIONS.items():
+        name = key.split(".", 1)[1]
+        (out / "sequential" / f"{name}.json").write_bytes(E.canon(mut(seq_ok)) + b"\n")
+        cases.append({"id": key, "family": "sequential", "valid": False,
+                      "path": f"sequential/{name}.json", "defect": key})
 
     for c in _seal_cases():
         name = c["key"].split(".", 1)[1]

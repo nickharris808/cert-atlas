@@ -49,7 +49,7 @@ Only the bundled reference entries are recomputed in CI, because they are our co
 ### If your verifier does not reach 1.000
 
 In the `artifact-only` track it cannot: `cert.self_consistent_forgery` is not catchable from the
-artifact by any verifier, so the ceiling is 0.955. Submit anyway — attaining the ceiling is the
+artifact by any verifier, so the ceiling is 0.964. Submit anyway — attaining the ceiling is the
 strongest honest claim available, and the leaderboard states the ceiling next to the scores.
 
 ## Installing for development

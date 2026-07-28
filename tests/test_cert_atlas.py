@@ -141,9 +141,9 @@ def test_atlas_has_both_valid_and_invalid_cases(atlas):
     assert ix["n_valid"] + ix["n_invalid"] == ix["n_cases"]
 
 
-def test_all_three_families_present(atlas):
+def test_all_families_present(atlas):
     ix = A.load_index(atlas)
-    assert set(ix["families"]) == {"certificate", "receipt", "seal"}
+    assert set(ix["families"]) == {"certificate", "receipt", "seal", "sequential"}
 
 
 def test_valid_cases_really_are_valid(atlas):
@@ -210,7 +210,11 @@ def test_cli_score_external_command_that_accepts_everything(tmp_path):
 def test_export_writes_jsonl_and_schema(atlas, tmp_path):
     import cert_atlas as A
     counts = A.hf_export(atlas, tmp_path)
-    assert counts == {"valid": 5, "invalid": 22}
+    ix = A.load_index(atlas)
+    # Derived from the index rather than hardcoded: the corpus is meant to grow,
+    # and a test that has to be edited on every addition gets edited carelessly.
+    assert counts == {"valid": ix["n_valid"], "invalid": ix["n_invalid"]}
+    assert sum(counts.values()) == ix["n_cases"] > 30
     for split, n in counts.items():
         p = tmp_path / "data" / f"{split}-00000.jsonl"
         lines = [json.loads(x) for x in p.read_text().splitlines() if x.strip()]
@@ -298,9 +302,14 @@ def test_standalone_loader_needs_no_dependencies():
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     d = mod.load(shipped)
-    assert len(d["valid"]) == 5 and len(d["invalid"]) == 22
+    # The shipped dataset's own schema states its counts; the loader must agree
+    # with them. (`test_shipped_dataset_matches_a_fresh_export` is what ties the
+    # shipped copy back to a freshly built atlas.)
+    counts = mod.schema(shipped)["counts"]
+    assert len(d["valid"]) == counts["valid"]
+    assert len(d["invalid"]) == counts["invalid"]
     assert mod.schema(shipped)["atlas_digest"]
-    assert len(list(mod.iter_forgeries(shipped))) == 22
+    assert len(list(mod.iter_forgeries(shipped))) == counts["invalid"]
 
 
 def test_list_columns_are_never_empty_across_a_whole_split(atlas, tmp_path):
@@ -326,7 +335,9 @@ def test_both_splits_load_together_if_datasets_is_available(atlas, tmp_path):
     ds = datasets.load_dataset("json", data_files={
         "valid": str(tmp_path / "data" / "valid-00000.jsonl"),
         "invalid": str(tmp_path / "data" / "invalid-00000.jsonl")})
-    assert len(ds["valid"]) == 5 and len(ds["invalid"]) == 22
+    ix = A.load_index(atlas)
+    assert len(ds["valid"]) == ix["n_valid"]
+    assert len(ds["invalid"]) == ix["n_invalid"]
 
 
 # ---------- adversarial: a hostile submission must not break the harness ----------

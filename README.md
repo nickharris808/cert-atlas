@@ -34,16 +34,16 @@ cert-atlas baseline atlas
 ```
 
 ```
-atlas 1.0.0  (27 cases)
-  detection  0.955   (invalid artifacts correctly rejected)
+atlas 1.0.0  (36 cases)
+  detection  0.964   (invalid artifacts correctly rejected)
   precision  1.000   (valid artifacts correctly accepted)
-  ATLAS SCORE 0.955  = min(detection, precision)
+  ATLAS SCORE 0.964  = min(detection, precision)
   sound: NO
   MISSED (forgeries that got through):
     - cert.self_consistent_forgery
 ```
 
-That **0.955 is the honest number**, and the miss is deliberate. `cert-atlas baseline` scores the
+That **0.964 is the honest number**, and the miss is deliberate. `cert-atlas baseline` scores the
 *artifact-only* track: no out-of-band fingerprint, so a forgery in which the physics inputs and the
 recorded verdict were edited together is indistinguishable from a genuine certificate — by anyone.
 Score the anchored track and it is caught:
@@ -66,6 +66,25 @@ cert-atlas score atlas my-verifier --check '{path}'
 ```
 
 Exit code 0 means a perfect score. Anything else prints exactly which forgeries got through.
+
+### The sequential family, and why it is not more of the same
+
+A sequential receipt is several proof obligations plus an inductive argument over them. That is
+more surface than one refutation, and two of its defects have no analogue elsewhere in the corpus:
+
+- **`seq.forged_undecided_as_equivalent`** — an honest abstention relabelled as a proof. Every
+  obligation present carries a real, checkable proof and the base cases genuinely hold; only the
+  inductive step is missing, and the recorded verdict does not mention it. A checker that verifies
+  each proof and then reads the verdict passes this. One that re-derives the *argument* does not.
+  It is the abstention-forgery class, in a second domain.
+- **`seq.valid_proof_of_a_different_problem`** — a real DRAT refutation of a real UNSAT formula
+  that is simply not what these circuits encode to. Catching it needs the design committed as data
+  and re-encoded, which is why the sequential receipt commits a machine-readable netlist rather
+  than a prose description.
+
+Three of the sequential cases are **valid**, and one of those is an `UNDECIDED-AT-K` abstention —
+a well-formed artifact that asserts nothing. A verifier that rejects it for not being a proof
+loses precision, which is the intended trap.
 
 ## The metric
 
@@ -92,13 +111,14 @@ gets past you, and the report names which.
 
 ## What is in it
 
-27 cases, 22 of them forgeries, across three families:
+36 cases, 28 of them forgeries, across four families:
 
 | Family | Valid | Invalid | Certifies |
 |---|---|---|---|
 | `certificate` | 1 | 11 | a manufacturing admission verdict over per-locus physical margins |
 | `receipt` | 2 | 8 | logic equivalence of two circuits, via a DRAT refutation |
-| `seal` | 2 | 3 | that acceptance criteria were fixed before measurement |
+| `seal` | 2 | 3 | that acceptance criteria were fixed before the result |
+| `sequential` | 3 | 6 | equivalence of two *state machines*, by induction over several proofs |
 
 Three worth singling out:
 
@@ -125,9 +145,9 @@ Each track states the score attainable in it, **computed from the corpus rather 
 | Track | Ceiling | Why |
 |---|---|---|
 | `anchored` | 1.000 | The verifier is given each case's out-of-band fingerprint. Everything is catchable. |
-| `artifact-only` | 0.955 | `cert.self_consistent_forgery` is internally flawless. No verifier can catch it from the artifact alone, so 1.000 is not attainable by anyone. |
+| `artifact-only` | 0.964 | `cert.self_consistent_forgery` is internally flawless. No verifier can catch it from the artifact alone, so 1.000 is not attainable by anyone. |
 
-The reference verifier scores exactly 0.955 artifact-only — it is sound **up to the theoretical
+The reference verifier scores exactly 0.964 artifact-only — it is sound **up to the theoretical
 limit of the track**, and `test_the_reference_verifier_attains_the_artifact_only_ceiling` asserts it.
 
 ## Submitting
@@ -176,7 +196,7 @@ different digests are not comparable and the scorer reports the digest with ever
 
 ## Honest limitations
 
-- Hand-designed, **not exhaustive**. Scoring 1.000 means sound *against these 22 forgeries* — a
+- Hand-designed, **not exhaustive**. Scoring 1.000 means sound *against these 28 forgeries* — a
   lower bound on soundness, never a proof of it.
 - Cases are deliberately small; they exercise decision logic, not scale.
 - The forgeries were written by the same people as the reference verifier. That is a real bias, and
@@ -203,7 +223,7 @@ Apache-2.0.
 | Are the numbers in a certificate physically meaningful? | **Never checked.** The atlas scores verifiers, not physics. |
 | Is the corpus exhaustive? | **No.** It is hand-designed, and written by the same people as the reference verifier — a real bias, and the reason an externally contributed forgery is worth more to us than a passing score. |
 
-The artifact-only track scores **0.955**, not 1.000, and the miss is deliberate: no
+The artifact-only track scores **0.964**, not 1.000, and the miss is deliberate: no
 checker can detect a self-consistent forgery from the artifact alone.
 
 ---

@@ -1,14 +1,14 @@
 {
+  "atlas_digest": "f278ae0d7fe885623b1b1ad2c3a742591a55d3c04bef6135b8e254d64e0abf64",
+  "atlas_score": 0.9643,
   "atlas_version": "1.0.0",
-  "atlas_digest": "a8e087f0acbc28559b6f17dea0a71fef8633ebdface85a98adf16bd7c4f12a1f",
-  "n_cases": 27,
-  "detection": 0.9545,
-  "precision": 1.0,
-  "atlas_score": 0.9545,
-  "sound": false,
+  "detection": 0.9643,
+  "errors": [],
+  "false_alarms": [],
   "missed": [
     "cert.self_consistent_forgery"
   ],
-  "false_alarms": [],
-  "errors": []
+  "n_cases": 36,
+  "precision": 1.0,
+  "sound": false
 }
