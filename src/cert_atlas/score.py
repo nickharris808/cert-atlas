@@ -49,7 +49,11 @@ def score(atlas_dir, verifier: VerifierFn, *, families: Optional[List[str]] = No
         path = str(atlas / case["path"])
         try:
             accepted = bool(verifier(path, case))
-        except Exception as exc:                      # a crash is not an acceptance
+        except BaseException as exc:   # noqa: BLE001
+            # BaseException, not Exception: a submitted verifier that calls
+            # sys.exit() raises SystemExit, which would otherwise kill the whole
+            # scoring run. One hostile submission must not take down the harness.
+            # A crash is never an acceptance.
             accepted = False
             errors.append({"id": case["id"], "error": f"{type(exc).__name__}: {exc}"})
         correct = accepted == case["valid"]
@@ -81,15 +85,25 @@ def score(atlas_dir, verifier: VerifierFn, *, families: Optional[List[str]] = No
     }
 
 
-def command_verifier(argv_template: List[str], accept_returncode: int = 0) -> VerifierFn:
+def command_verifier(argv_template: List[str], accept_returncode: int = 0,
+                     timeout: float = 30.0) -> VerifierFn:
     """Adapt an external CLI to the scorer.
 
     ``argv_template`` uses ``{path}`` as the placeholder, e.g.
     ``["my-verifier", "--check", "{path}"]``. Acceptance is signalled by exit code.
+
+    A verifier that hangs is scored as a **rejection** after ``timeout`` seconds
+    rather than blocking the run forever — an answer that never arrives is not an
+    acceptance.
     """
     def _v(path: str, case: dict) -> bool:
         argv = [a.replace("{path}", path) for a in argv_template]
-        r = subprocess.run(argv, capture_output=True, text=True)
+        try:
+            r = subprocess.run(argv, capture_output=True, text=True, timeout=timeout)
+        except subprocess.TimeoutExpired:
+            return False
+        except (OSError, ValueError) as exc:
+            raise RuntimeError(f"could not run {argv[0]!r}: {exc}") from exc
         return r.returncode == accept_returncode
     return _v
 

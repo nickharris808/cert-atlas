@@ -34,10 +34,28 @@ cert-atlas baseline atlas
 ```
 
 ```
-atlas 1.0.0  (26 cases)
-  detection  1.000   (invalid artifacts correctly rejected)
+atlas 1.0.0  (27 cases)
+  detection  0.955   (invalid artifacts correctly rejected)
   precision  1.000   (valid artifacts correctly accepted)
-  ATLAS SCORE 1.000  = min(detection, precision)
+  ATLAS SCORE 0.955  = min(detection, precision)
+  sound: NO
+  MISSED (forgeries that got through):
+    - cert.self_consistent_forgery
+```
+
+That **0.955 is the honest number**, and the miss is deliberate. `cert-atlas baseline` scores the
+*artifact-only* track: no out-of-band fingerprint, so a forgery in which the physics inputs and the
+recorded verdict were edited together is indistinguishable from a genuine certificate — by anyone.
+Score the anchored track and it is caught:
+
+```
+cert-atlas baseline atlas --anchored
+```
+
+```
+  detection  1.000
+  precision  1.000
+  ATLAS SCORE 1.000
   sound: YES
 ```
 
@@ -74,11 +92,11 @@ gets past you, and the report names which.
 
 ## What is in it
 
-26 cases, 21 of them forgeries, across three families:
+27 cases, 22 of them forgeries, across three families:
 
 | Family | Valid | Invalid | Certifies |
 |---|---|---|---|
-| `certificate` | 1 | 10 | a manufacturing admission verdict over per-locus physical margins |
+| `certificate` | 1 | 11 | a manufacturing admission verdict over per-locus physical margins |
 | `receipt` | 2 | 8 | logic equivalence of two circuits, via a DRAT refutation |
 | `seal` | 2 | 3 | that acceptance criteria were fixed before measurement |
 
@@ -114,7 +132,7 @@ different digests are not comparable and the scorer reports the digest with ever
 
 ## Honest limitations
 
-- Hand-designed, **not exhaustive**. Scoring 1.000 means sound *against these 21 forgeries* — a
+- Hand-designed, **not exhaustive**. Scoring 1.000 means sound *against these 22 forgeries* — a
   lower bound on soundness, never a proof of it.
 - Cases are deliberately small; they exercise decision logic, not scale.
 - The forgeries were written by the same people as the reference verifier. That is a real bias, and
@@ -143,7 +161,7 @@ One idea, six pieces: **a recorded verdict is a claim to be checked, never an in
 | [**lcert-verify**](https://github.com/nickharris808/lcert-verify) | Re-derive a manufacturing certificate's verdict. Stdlib only. |
 | [**equiv-receipt**](https://github.com/nickharris808/equiv-receipt) | Prove two circuits equivalent, with a receipt anyone can re-check. |
 | [**prereg-seal**](https://github.com/nickharris808/prereg-seal) | Seal acceptance criteria before you measure. |
-| [**cert-atlas**](https://github.com/nickharris808/cert-atlas) | 21 labelled forgeries and a metric no degenerate verifier can win. |
+| [**cert-atlas**](https://github.com/nickharris808/cert-atlas) | 22 labelled forgeries and a metric no degenerate verifier can win. |
 | [**certified-mcp**](https://github.com/nickharris808/certified-mcp) | The above, as tools your AI agent can call. |
 | [**lcert-verify-web**](https://github.com/nickharris808/lcert-verify-web) | The verifier in a browser. Nothing uploaded. |
 

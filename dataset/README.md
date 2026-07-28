@@ -193,6 +193,18 @@ the digest with every run.
 - The corpus tests **verifiers**, not physics. It says nothing about whether a certificate's numbers
   describe a real physical object.
 
+
+## The rest of the toolkit
+
+| | |
+|---|---|
+| [**lcert-verify**](https://github.com/nickharris808/lcert-verify) | Re-derive a manufacturing certificate's verdict. Stdlib only. |
+| [**equiv-receipt**](https://github.com/nickharris808/equiv-receipt) | Prove two circuits equivalent, with a re-checkable receipt. |
+| [**prereg-seal**](https://github.com/nickharris808/prereg-seal) | Seal acceptance criteria before you measure. |
+| [**cert-atlas**](https://github.com/nickharris808/cert-atlas) | This corpus, plus the scorer. |
+| [**certified-mcp**](https://github.com/nickharris808/certified-mcp) | All of it, as tools an AI agent can call. |
+| [🔏 **Try the verifier**](https://huggingface.co/spaces/nickh007/cert-verifier) | In your browser. Nothing uploaded. |
+
 ## Licence
 
 Apache-2.0. See `LICENSE`.

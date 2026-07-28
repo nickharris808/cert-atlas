@@ -80,6 +80,16 @@ _d(key="cert.vacuous", family=CERT, severity="vacuity",
    caught_by="Refusing a bundle that certifies nothing.",
    tags=["vacuity", "the-quiet-one"])
 
+_d(key="cert.self_consistent_forgery", family=CERT, severity="soundness",
+   title="Physics inputs AND recorded verdict edited together, so they agree",
+   why_it_looks_valid="Every internal check passes. The forger simply did the interval "
+                      "arithmetic correctly on fabricated inputs, so re-derivation "
+                      "reproduces exactly the verdict that was recorded.",
+   caught_by="An out-of-band fingerprint ONLY. No amount of internal checking can "
+             "distinguish this from a genuine certificate — which is why the reference "
+             "verifier abstains (UNVERIFIED) rather than passing when no anchor is given.",
+   tags=["verdict", "physics-input", "requires-anchor", "the-honest-limit"])
+
 _d(key="cert.broken_manifest", family=CERT, severity="integrity",
    title="A payload file edited after the manifest was written",
    why_it_looks_valid="The bundle metadata is untouched.",

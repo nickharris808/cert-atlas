@@ -29,6 +29,9 @@ def main(argv=None) -> int:
 
     r = sub.add_parser("baseline", help="score the bundled reference verifiers")
     r.add_argument("atlas")
+    r.add_argument("--anchored", action="store_true",
+                   help="supply each case's out-of-band fingerprint (catches everything); "
+                        "without it, the artifact-only track is scored")
     r.add_argument("--json", action="store_true")
 
     d = sub.add_parser("defects", help="print the defect taxonomy")
@@ -64,8 +67,9 @@ def main(argv=None) -> int:
         return 0
 
     if a.cmd == "baseline":
-        from .reference import reference_verifier
-        res = score(a.atlas, reference_verifier)
+        from .reference import anchored_reference_verifier, reference_verifier
+        res = score(a.atlas,
+                    anchored_reference_verifier if a.anchored else reference_verifier)
     else:
         res = score(a.atlas, command_verifier(a.cmd, a.accept_returncode))
 

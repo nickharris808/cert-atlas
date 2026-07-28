@@ -74,7 +74,27 @@ CERT_MUTATIONS: Dict[str, Callable[[Path], None]] = {
             "kpis", [{"key": "worst_pfail_upper", "value": 1e-9}])),
     "cert.noncanonical":
         lambda d: _edit(d, lambda b: None, canonical=False),
+    "cert.self_consistent_forgery":
+        lambda d: _self_consistent(d),
 }
+
+
+def _self_consistent(d: Path) -> None:
+    """Rewrite the physics to something safe, then recompute the verdict to match.
+
+    The result is internally flawless: it is a lie only relative to the artifact
+    that was actually measured, and only an out-of-band fingerprint reveals it.
+    """
+    def fn(b):
+        c = b["gate_certs"][0]
+        n = len(c["loci"]["ae0"])
+        c["loci"]["I_lo"] = [0.10] * n
+        c["loci"]["I_hi"] = [0.11] * n
+        red = V.rederive_gate_verdict(c)
+        c["recorded"] = dict(red)
+        c["recorded"]["float_admit"] = red["interval_admit"]
+        c["recorded"]["match"] = True
+    _edit(d, fn)
 
 
 # ---------------- receipt mutations ----------------
@@ -206,14 +226,19 @@ def build(out_dir) -> dict:
     cases = []
 
     _write_bundle(out / "certificates" / "valid")
+    genuine_fp = _fingerprint(out / "certificates" / "valid")
     cases.append({"id": "cert.valid", "family": "certificate", "valid": True,
-                  "path": "certificates/valid", "defect": None})
+                  "path": "certificates/valid", "defect": None,
+                  "expected_fingerprint": genuine_fp})
 
     for key, mut in CERT_MUTATIONS.items():
         name = key.split(".", 1)[1]
         _write_bundle(out / "certificates" / name, mut)
+        # Every certificate case carries the fingerprint of the GENUINE artifact,
+        # standing in for a value a real user obtains out of band.
         cases.append({"id": key, "family": "certificate", "valid": False,
-                      "path": f"certificates/{name}", "defect": key})
+                      "path": f"certificates/{name}", "defect": key,
+                      "expected_fingerprint": genuine_fp})
 
     good = _good_receipt()
     (out / "receipts" / "valid.json").write_bytes(E.canon(good) + b"\n")
@@ -261,6 +286,10 @@ def build(out_dir) -> dict:
     (out / "index.json").write_bytes(
         json.dumps(index, indent=1, sort_keys=True).encode() + b"\n")
     return index
+
+
+def _fingerprint(bundle_dir) -> str:
+    return hashlib.sha256((Path(bundle_dir) / "bundle.json").read_bytes()).hexdigest()
 
 
 def atlas_digest(out_dir) -> str:

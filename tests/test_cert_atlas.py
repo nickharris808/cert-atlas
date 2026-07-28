@@ -49,11 +49,30 @@ def test_digest_changes_if_any_case_changes(atlas, tmp_path):
 
 # ---------- the reference catches everything it claims to ----------
 
-def test_reference_is_sound_on_the_whole_atlas(atlas):
+def test_reference_catches_everything_an_artifact_alone_can_reveal(atlas):
+    """Artifact-only track. The ONE expected miss is the self-consistent forgery,
+    which no artifact-only checker can catch — that is the honest limit, and it is
+    a case in the corpus precisely so it is measured rather than assumed."""
     res = A.score(atlas, reference_verifier)
-    assert res["detection"] == 1.0, f"forgeries got through: {res['missed']}"
+    assert res["missed"] == ["cert.self_consistent_forgery"], res["missed"]
     assert res["precision"] == 1.0, f"false alarms: {res['false_alarms']}"
-    assert res["sound"] is True
+
+
+def test_anchored_reference_is_sound_on_the_whole_atlas(atlas):
+    """With the out-of-band anchor supplied, nothing gets through."""
+    res = A.score(atlas, A.anchored_reference_verifier)
+    assert res["detection"] == 1.0, f"forgeries got through: {res['missed']}"
+    assert res["precision"] == 1.0
+    assert res["sound"] is True and res["atlas_score"] == 1.0
+
+
+def test_the_self_consistent_forgery_is_only_caught_with_an_anchor(atlas):
+    """The finding this case exists to record, asserted both ways."""
+    ix = A.load_index(atlas)
+    case = next(c for c in ix["cases"] if c["defect"] == "cert.self_consistent_forgery")
+    path = str(Path(atlas) / case["path"])
+    assert reference_verifier(path, case) is True      # artifact alone: indistinguishable
+    assert A.anchored_reference_verifier(path, case) is False   # anchor refutes it
 
 
 def test_every_declared_defect_has_a_case(atlas):
@@ -72,10 +91,13 @@ def test_every_case_defect_is_in_the_taxonomy(atlas):
 
 @pytest.mark.parametrize("key", sorted(DEFECTS))
 def test_each_defect_is_individually_caught(atlas, key):
-    """Per-defect, not just in aggregate — an aggregate can hide a specific miss."""
+    """Per-defect, not just in aggregate — an aggregate can hide a specific miss.
+
+    Scored on the anchored track, which is the one that must catch everything.
+    """
     ix = A.load_index(atlas)
     case = next(c for c in ix["cases"] if c["defect"] == key)
-    accepted = reference_verifier(str(Path(atlas) / case["path"]), case)
+    accepted = A.anchored_reference_verifier(str(Path(atlas) / case["path"]), case)
     assert accepted is False, f"reference verifier ACCEPTED forgery {key}"
 
 
@@ -115,7 +137,7 @@ def test_a_crashing_verifier_does_not_score_as_accepting(atlas):
 
 def test_atlas_has_both_valid_and_invalid_cases(atlas):
     ix = A.load_index(atlas)
-    assert ix["n_valid"] >= 4 and ix["n_invalid"] >= 15
+    assert ix["n_valid"] >= 4 and ix["n_invalid"] >= 20
     assert ix["n_valid"] + ix["n_invalid"] == ix["n_cases"]
 
 
@@ -130,6 +152,7 @@ def test_valid_cases_really_are_valid(atlas):
     for c in ix["cases"]:
         if c["valid"]:
             assert reference_verifier(str(Path(atlas) / c["path"]), c) is True, c["id"]
+            assert A.anchored_reference_verifier(str(Path(atlas) / c["path"]), c) is True, c["id"]
 
 
 def test_severity_labels_are_from_the_fixed_set(atlas):
@@ -157,8 +180,8 @@ def test_cli_build_and_baseline(tmp_path):
     r = subprocess.run([sys.executable, "-m", "cert_atlas.cli", "build", str(out)],
                        capture_output=True, text=True, env=_env())
     assert r.returncode == 0, r.stderr
-    r = subprocess.run([sys.executable, "-m", "cert_atlas.cli", "baseline", str(out), "--json"],
-                       capture_output=True, text=True, env=_env())
+    r = subprocess.run([sys.executable, "-m", "cert_atlas.cli", "baseline", str(out),
+                        "--anchored", "--json"], capture_output=True, text=True, env=_env())
     assert r.returncode == 0, r.stderr
     assert json.loads(r.stdout)["atlas_score"] == 1.0
 
@@ -187,7 +210,7 @@ def test_cli_score_external_command_that_accepts_everything(tmp_path):
 def test_export_writes_jsonl_and_schema(atlas, tmp_path):
     import cert_atlas as A
     counts = A.hf_export(atlas, tmp_path)
-    assert counts == {"valid": 5, "invalid": 21}
+    assert counts == {"valid": 5, "invalid": 22}
     for split, n in counts.items():
         p = tmp_path / "data" / f"{split}-00000.jsonl"
         lines = [json.loads(x) for x in p.read_text().splitlines() if x.strip()]
@@ -275,9 +298,9 @@ def test_standalone_loader_needs_no_dependencies():
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     d = mod.load(shipped)
-    assert len(d["valid"]) == 5 and len(d["invalid"]) == 21
+    assert len(d["valid"]) == 5 and len(d["invalid"]) == 22
     assert mod.schema(shipped)["atlas_digest"]
-    assert len(list(mod.iter_forgeries(shipped))) == 21
+    assert len(list(mod.iter_forgeries(shipped))) == 22
 
 
 def test_list_columns_are_never_empty_across_a_whole_split(atlas, tmp_path):
@@ -303,4 +326,60 @@ def test_both_splits_load_together_if_datasets_is_available(atlas, tmp_path):
     ds = datasets.load_dataset("json", data_files={
         "valid": str(tmp_path / "data" / "valid-00000.jsonl"),
         "invalid": str(tmp_path / "data" / "invalid-00000.jsonl")})
-    assert len(ds["valid"]) == 5 and len(ds["invalid"]) == 21
+    assert len(ds["valid"]) == 5 and len(ds["invalid"]) == 22
+
+
+# ---------- adversarial: a hostile submission must not break the harness ----------
+
+def test_verifier_calling_sys_exit_does_not_kill_the_run(atlas):
+    """SystemExit is a BaseException; catching only Exception let it through."""
+    def suicidal(path, case):
+        raise SystemExit(1)
+    res = A.score(atlas, suicidal)
+    assert res["atlas_score"] == 0.0
+    assert len(res["errors"]) == res["n_cases"]
+    assert all("SystemExit" in e["error"] for e in res["errors"])
+
+
+def test_verifier_raising_keyboardinterrupt_is_contained(atlas):
+    def interrupted(path, case):
+        raise KeyboardInterrupt()
+    res = A.score(atlas, interrupted)
+    assert res["atlas_score"] == 0.0
+
+
+def test_hanging_command_verifier_times_out_as_a_rejection(atlas):
+    import sys
+    slow = A.command_verifier([sys.executable, "-c", "import time; time.sleep(30)", "{path}"],
+                              timeout=1.0)
+    res = A.score(atlas, slow)
+    assert res["detection"] == 1.0      # a non-answer is a rejection
+    assert res["precision"] == 0.0      # ...so it cannot win
+    assert res["atlas_score"] == 0.0
+
+
+def test_missing_command_reports_clearly(atlas):
+    v = A.command_verifier(["definitely-not-a-real-binary-xyz", "{path}"])
+    res = A.score(atlas, v)
+    assert res["atlas_score"] == 0.0
+    assert any("could not run" in e["error"] for e in res["errors"])
+
+
+def test_verifier_returning_junk_is_coerced_safely(atlas):
+    for junk in (None, "yes", 0, [], {}):
+        res = A.score(atlas, lambda p, c, j=junk: j)
+        assert res["atlas_score"] in (0.0, res["atlas_score"])   # never crashes
+
+
+def test_score_is_always_min_of_both_halves(atlas):
+    for fn in (A.reference_verifier, A.accept_everything, A.reject_everything):
+        r = A.score(atlas, fn)
+        assert r["atlas_score"] == min(r["detection"], r["precision"])
+
+
+def test_no_verifier_can_score_above_the_reference_by_cheating(atlas):
+    """A verifier that accepts only what it recognises still cannot beat 1.000."""
+    def cherry(path, case):
+        return case["valid"]          # perfect oracle -- uses the label
+    r = A.score(atlas, cherry)
+    assert r["atlas_score"] == 1.0    # it IS perfect; the atlas does not hide labels

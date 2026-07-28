@@ -2,11 +2,13 @@
   "atlas_version": "1.0.0",
   "atlas_digest": "a8e087f0acbc28559b6f17dea0a71fef8633ebdface85a98adf16bd7c4f12a1f",
   "n_cases": 27,
-  "detection": 1.0,
+  "detection": 0.9545,
   "precision": 1.0,
-  "atlas_score": 1.0,
-  "sound": true,
-  "missed": [],
+  "atlas_score": 0.9545,
+  "sound": false,
+  "missed": [
+    "cert.self_consistent_forgery"
+  ],
   "false_alarms": [],
   "errors": []
 }
