@@ -150,6 +150,18 @@ about arithmetic and integrity, which is necessary but not sufficient.
 
 Apache-2.0.
 
+## Honest scope — what this proves, and what it does not
+
+| Question | Answer |
+|---|---|
+| Does a verifier catch these 22 specific forgeries? | **Yes, measured** — per defect, not just in aggregate. |
+| Is a verifier scoring 1.000 *sound*? | **No.** It is sound against these 22. That is a lower bound, never a proof. |
+| Are the numbers in a certificate physically meaningful? | **Never checked.** The atlas scores verifiers, not physics. |
+| Is the corpus exhaustive? | **No.** It is hand-designed, and written by the same people as the reference verifier — a real bias, and the reason an externally contributed forgery is worth more to us than a passing score. |
+
+The artifact-only track scores **0.955**, not 1.000, and the miss is deliberate: no
+checker can detect a self-consistent forgery from the artifact alone.
+
 ---
 
 ## The rest of the toolkit
