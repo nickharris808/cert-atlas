@@ -34,6 +34,10 @@ def main(argv=None) -> int:
     s.add_argument("--accept-returncode", type=int, default=0)
     s.add_argument("--json", action="store_true")
     s.add_argument("--quiet", action="store_true", help="aggregate only")
+    s.add_argument("-j", "--jobs", type=int, default=1,
+                   help="score cases concurrently. Worth it for a subprocess "
+                        "verifier, where the cost is interpreter startup; the "
+                        "result is identical either way")
 
     r = sub.add_parser("baseline", help="score the bundled reference verifiers")
     r.add_argument("atlas")
@@ -60,6 +64,7 @@ def main(argv=None) -> int:
     m.add_argument("--url", default="", help="link to the verifier's source")
     m.add_argument("--notes", default="")
     m.add_argument("--accept-returncode", type=int, default=0)
+    m.add_argument("-j", "--jobs", type=int, default=1)
     m.add_argument("-o", "--output", default="",
                    help="write the record here (default: submissions/<verifier>.json)")
 
@@ -87,7 +92,8 @@ def main(argv=None) -> int:
 
     if a._cmd == "submit":
         from .submit import build_submission, validate_submission, write_submission
-        res = score(a.atlas, command_verifier(a.cmd, a.accept_returncode))
+        res = score(a.atlas, command_verifier(a.cmd, a.accept_returncode),
+                    jobs=a.jobs)
         sub_rec = build_submission(res, verifier=a.verifier, track=a.track,
                                    url=a.url, notes=a.notes, command=a.cmd)
         errs = validate_submission(sub_rec)
@@ -135,7 +141,8 @@ def main(argv=None) -> int:
         res = score(a.atlas,
                     anchored_reference_verifier if a.anchored else reference_verifier)
     else:
-        res = score(a.atlas, command_verifier(a.cmd, a.accept_returncode))
+        res = score(a.atlas, command_verifier(a.cmd, a.accept_returncode),
+                    jobs=getattr(a, "jobs", 1))
 
     if getattr(a, "json", False):
         print(json.dumps({k: v for k, v in res.items() if k != "rows"}, indent=2))

@@ -43,7 +43,7 @@ inputs:
       a local path (e.g. ".") to exercise a checkout — this repository's own CI does
       that so a broken action cannot ship green against an older published version.
     required: false
-    default: "git+https://github.com/nickharris808/cert-atlas@main"
+    default: "git+https://github.com/nickharris808/cert-atlas.git@main"
 
 outputs:
   atlas-score:
@@ -70,9 +70,9 @@ runs:
       shell: bash
       run: |
         pip install --quiet \
-          "lcert-verify @ git+https://github.com/nickharris808/lcert-verify@main" \
-          "equiv-receipt @ git+https://github.com/nickharris808/equiv-receipt@main" \
-          "prereg-seal @ git+https://github.com/nickharris808/prereg-seal@main"
+          "lcert-verify @ git+https://github.com/nickharris808/lcert-verify.git@main" \
+          "equiv-receipt @ git+https://github.com/nickharris808/equiv-receipt.git@main" \
+          "prereg-seal @ git+https://github.com/nickharris808/prereg-seal.git@main"
         src='${{ inputs.cert-atlas-source }}'
         case "$src" in
           git+*) pip install --quiet --no-deps "cert-atlas @ $src" ;;

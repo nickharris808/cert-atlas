@@ -33,29 +33,47 @@ def load_index(atlas_dir) -> dict:
     return json.loads((Path(atlas_dir) / "index.json").read_text())
 
 
-def score(atlas_dir, verifier: VerifierFn, *, families: Optional[List[str]] = None) -> dict:
+def score(atlas_dir, verifier: VerifierFn, *, families: Optional[List[str]] = None,
+          jobs: int = 1) -> dict:
     """Run ``verifier`` over every case and compute the metric.
 
     ``verifier`` returns True if it ACCEPTS the artifact. Exceptions count as a
     rejection, since a verifier that crashes has not accepted anything.
+
+    ``jobs`` > 1 runs cases concurrently in threads. That is worth it only for a
+    verifier invoked as a subprocess, where the cost is interpreter startup and
+    the GIL is released while waiting — an in-process verifier gains nothing and
+    may lose. **Results are assembled in index order regardless**, so the score,
+    the row order and the missed list do not depend on scheduling.
     """
     atlas = Path(atlas_dir)
     index = load_index(atlas)
-    rows, errors = [], []
+    selected = [c for c in index["cases"]
+                if not families or c["family"] in families]
+    errors = []
 
-    for case in index["cases"]:
-        if families and case["family"] not in families:
-            continue
+    def run(case):
         path = str(atlas / case["path"])
         try:
-            accepted = bool(verifier(path, case))
+            return bool(verifier(path, case)), None
         except BaseException as exc:   # noqa: BLE001
             # BaseException, not Exception: a submitted verifier that calls
             # sys.exit() raises SystemExit, which would otherwise kill the whole
             # scoring run. One hostile submission must not take down the harness.
             # A crash is never an acceptance.
-            accepted = False
-            errors.append({"id": case["id"], "error": f"{type(exc).__name__}: {exc}"})
+            return False, f"{type(exc).__name__}: {exc}"
+
+    if jobs and jobs > 1 and len(selected) > 1:
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=int(jobs)) as pool:
+            outcomes = list(pool.map(run, selected))
+    else:
+        outcomes = [run(c) for c in selected]
+
+    rows = []
+    for case, (accepted, err) in zip(selected, outcomes):
+        if err:
+            errors.append({"id": case["id"], "error": err})
         correct = accepted == case["valid"]
         rows.append({"id": case["id"], "family": case["family"],
                      "should_accept": case["valid"], "accepted": accepted,

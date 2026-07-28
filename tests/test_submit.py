@@ -288,3 +288,42 @@ def test_the_subprocess_scoring_path_matches_the_in_process_reference(atlas, ref
     assert got["atlas_score"] == ref["atlas_score"]
     assert got["missed"] == ref["missed"]
     assert got["false_alarms"] == ref["false_alarms"]
+
+
+# ------------------------------------------------------------------ concurrency
+
+def test_concurrent_scoring_gives_an_identical_result(atlas):
+    """A faster answer that is a different answer is not a faster answer."""
+    from cert_atlas.score import command_verifier
+    shim = str(Path(__file__).resolve().parents[1] / "scripts" / "reference_cli.py")
+    v = command_verifier([sys.executable, shim, "{path}"], 0)
+    serial = score(atlas, v, jobs=1)
+    parallel = score(atlas, v, jobs=8)
+    for key in ("atlas_score", "detection", "precision", "missed", "false_alarms",
+                "n_cases"):
+        assert serial[key] == parallel[key], key
+    assert [r["id"] for r in serial["rows"]] == [r["id"] for r in parallel["rows"]], \
+        "row order must not depend on scheduling"
+    assert serial["rows"] == parallel["rows"]
+
+
+def test_a_hostile_verifier_is_still_contained_under_concurrency(atlas):
+    """One submission that exits, crashes or hangs must not take down the run."""
+    import random
+
+    def hostile(path, case):
+        r = random.Random(case["id"]).random()
+        if r < 0.3:
+            raise SystemExit(9)
+        if r < 0.6:
+            raise MemoryError("boom")
+        return True
+
+    res = score(atlas, hostile, jobs=8)
+    assert res["n_cases"] > 0
+    assert res["errors"], "the failures must be reported, not swallowed"
+    # a crash is never an acceptance
+    crashed = {e["id"] for e in res["errors"]}
+    for row in res["rows"]:
+        if row["id"] in crashed:
+            assert row["accepted"] is False
