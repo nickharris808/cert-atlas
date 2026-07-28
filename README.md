@@ -5,7 +5,6 @@
 ![python](https://img.shields.io/badge/python-3.9%2B-blue)
 ![cases](https://img.shields.io/badge/atlas-26%20cases%20%2F%2021%20forgeries-blueviolet)
 ![tests](https://img.shields.io/badge/tests-48%20passing-brightgreen)
-[![ci](https://github.com/nickharris808/cert-atlas/actions/workflows/ci.yml/badge.svg)](https://github.com/nickharris808/cert-atlas/actions/workflows/ci.yml)
 
 **A corpus of certificates that look valid and are not — and a metric that a
 reject-everything verifier cannot win.**
