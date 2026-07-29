@@ -55,7 +55,11 @@ def score(atlas_dir, verifier: VerifierFn, *, families: Optional[List[str]] = No
     def run(case):
         path = str(atlas / case["path"])
         try:
-            return bool(verifier(path, case)), None
+            # The verifier gets a COPY. It is submitted code: a hostile or merely
+            # careless one that mutates the dict it is handed would otherwise
+            # corrupt the harness's own record of the case, and the run would die
+            # on a KeyError somewhere unrelated.
+            return bool(verifier(path, dict(case))), None
         except BaseException as exc:   # noqa: BLE001
             # BaseException, not Exception: a submitted verifier that calls
             # sys.exit() raises SystemExit, which would otherwise kill the whole

@@ -124,6 +124,9 @@ def render_leaderboard(subs: list, *, atlas_digest: str = "",
     """
     ranked, rejected = [], []
     for s in subs:
+        if not isinstance(s, dict):
+            rejected.append(({"verifier": "?"}, ["submission is not an object"]))
+            continue
         errs = validate_submission(s, expected_digest=atlas_digest)
         (rejected if errs else ranked).append((s, errs))
 
@@ -161,7 +164,12 @@ def render_leaderboard(subs: list, *, atlas_digest: str = "",
             missed = ", ".join(f"`{m}`" for m in s["missed"][:3]) or "—"
             if len(s["missed"]) > 3:
                 missed += f" +{len(s['missed'])-3}"
-            name = f"[{s['verifier']}]({s['url']})" if s.get("url") else s["verifier"]
+            # A verifier name is attacker-controlled text going into a Markdown
+            # table. A newline would split the row and a pipe would add a column.
+            safe = str(s["verifier"]).replace("|", "\\|").replace("\n", " ").replace("\r", " ")
+            safe = safe[:120] or "(unnamed)"
+            url = str(s.get("url") or "").replace(")", "%29").replace("\n", "")
+            name = f"[{safe}]({url})" if url else safe
             out.append(f"| {i} | {name} | **{s['atlas_score']:.3f}** | "
                        f"{s['detection']:.3f} | {s['precision']:.3f} | {missed} |")
         out.append("")
@@ -172,7 +180,10 @@ def render_leaderboard(subs: list, *, atlas_digest: str = "",
                 "entry dropped.", "",
                 "| Verifier | Reason |", "|---|---|"]
         for s, errs in rejected:
-            out.append(f"| {s.get('verifier', '?')} | {errs[0]} |")
+            who = str(s.get("verifier", "?")).replace("|", "\\|")
+            who = who.replace("\n", " ").replace("\r", " ")[:120] or "(unnamed)"
+            why = str(errs[0]).replace("|", "\\|").replace("\n", " ")
+            out.append(f"| {who} | {why} |")
         out.append("")
 
     out += ["---", "",
@@ -188,7 +199,12 @@ def load_submissions(directory) -> list:
     out = []
     for f in sorted(d.glob("*.json")):
         try:
-            out.append(json.loads(f.read_text(encoding="utf-8")))
-        except ValueError:
+            obj = json.loads(f.read_text(encoding="utf-8"))
+        except (ValueError, OSError):
             out.append({"verifier": f.name, "format": "unparseable"})
+            continue
+        # Valid JSON that is not an object is not a submission. It is listed as
+        # unranked with the file name, rather than crashing the render.
+        out.append(obj if isinstance(obj, dict)
+                   else {"verifier": f.name, "format": "unparseable"})
     return out
