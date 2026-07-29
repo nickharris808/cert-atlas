@@ -2,9 +2,9 @@
 
 [![ci](https://github.com/nickharris808/cert-atlas/actions/workflows/ci.yml/badge.svg)](https://github.com/nickharris808/cert-atlas/actions/workflows/ci.yml)
 ![license](https://img.shields.io/badge/license-Apache--2.0-blue)
-![python](https://img.shields.io/badge/python-3.9%2B-blue)
-![cases](https://img.shields.io/badge/atlas-26%20cases%20%2F%2021%20forgeries-blueviolet)
-![tests](https://img.shields.io/badge/tests-48%20passing-brightgreen)
+![python](https://img.shields.io/badge/python-3.9+-blue)
+![tests](https://img.shields.io/badge/tests-167%20passing-brightgreen)
+![atlas](https://img.shields.io/badge/atlas-36%20cases%20%2F%2028%20forgeries-blue)
 
 **A corpus of certificates that look valid and are not — and a metric that a
 reject-everything verifier cannot win.**
@@ -265,6 +265,15 @@ Portfolio-wide: **[Tutorial](https://github.com/nickharris808/certified-oss/blob
 · **[FAQ](https://github.com/nickharris808/certified-oss/blob/main/FAQ.md)**
 · **[Architecture](https://github.com/nickharris808/certified-oss/blob/main/ARCHITECTURE.md)**
 · **[API reference](https://nickharris808.github.io/certified-oss/api/)**
+
+## Licence, citation, contributing
+
+Apache-2.0 — see [LICENSE](LICENSE). If you use this, please cite it:
+[CITATION.cff](CITATION.cff).
+
+The most valuable contribution is **a forgery this project fails to catch** —
+see [CONTRIBUTING.md](CONTRIBUTING.md) and the
+[portfolio-wide guide](https://github.com/nickharris808/certified-oss/blob/main/CONTRIBUTING.md).
 
 ---
 
