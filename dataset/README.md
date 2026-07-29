@@ -50,9 +50,9 @@ dataset_info:
       dtype: string
   splits:
     - name: valid
-      num_examples: 5
+      num_examples: 8
     - name: invalid
-      num_examples: 21
+      num_examples: 28
 ---
 
 # Certificate Failure Atlas
@@ -133,10 +133,12 @@ Fields that only apply to forgeries (`defect`, `severity`, `title`, `why_it_look
 
 ## Splits
 
+Families: `certificate`, `receipt`, `seal`, `sequential`.
+
 | split | rows | contents |
 |---|---|---|
-| `valid` | 5 | artifacts a correct verifier must **accept** |
-| `invalid` | 21 | forgeries a correct verifier must **reject** |
+| `valid` | 8 | artifacts a correct verifier must **accept** |
+| `invalid` | 28 | forgeries a correct verifier must **reject** |
 
 By family: `certificate` (1 valid / 10 forged), `receipt` (2 / 8), `seal` (2 / 3).
 
@@ -185,7 +187,7 @@ the digest with every run.
 
 ## Limitations
 
-- **Hand-designed, not exhaustive.** Scoring 1.000 means sound against these 21 forgeries — a lower
+- **Hand-designed, not exhaustive.** Scoring 1.000 means sound against these 28 forgeries — a lower
   bound on soundness, never a proof of it.
 - Cases are deliberately small; they exercise decision logic rather than scale.
 - The forgeries were written by the same authors as the reference verifier. That is a real bias, and

@@ -71,3 +71,23 @@ def test_the_performance_note_is_present():
     assert "measured" in text.lower()
     # it must state what was NOT optimised as well as what was
     assert "not built" in text or "no optimisation" in text.lower()
+
+
+def test_the_dataset_card_matches_the_corpus_it_describes():
+    """The shipped card had 5/21 while the corpus held 8/28 for a whole release.
+
+    The card is uploaded to Hugging Face from this directory, so a stale copy
+    here becomes a stale claim there.
+    """
+    import json
+    import re
+
+    card = (ROOT / "dataset" / "README.md").read_text()
+    counts = json.loads((ROOT / "dataset" / "schema.json").read_text())["counts"]
+    found = dict(re.findall(r"\| `(valid|invalid)` \| (\d+) \|", card))
+    assert found, "the card no longer states its split sizes"
+    for split, n in counts.items():
+        assert found.get(split) == str(n), (
+            f"the card says {split}={found.get(split)}, the data has {n}")
+    for m in re.finditer(r"(\d+) forgeries", card):
+        assert int(m.group(1)) == counts["invalid"], m.group(0)
